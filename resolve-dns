@@ -1,0 +1,50 @@
+mport pandas as pd
+import numpy as np
+import openpyxl
+import xlsxwriter
+import dns
+import dns.resolver
+from dns.resolver import Resolver
+import dns.query
+import dns.message
+import dns.rdataclass
+import dns.rdatatype
+import dns.reversename
+
+iplist = {}
+
+sourcefile = 'iplist.xlsx'
+source_xlsx = pd.ExcelFile(sourcefile)
+source_sheet = source_xlsx.sheet_names
+source_df = pd.read_excel(source_xlsx, source_sheet[0])
+key_hostname = source_df.Dns_Name1.unique()
+dns_server = ['8.8.8.8']
+
+resolver = dns.resolver.Resolver(configure=False)
+resolver.nameservers = dns_server
+
+for key in key_hostname:
+    #ptr_record = dns.reversename.from_address(key)
+
+    try:
+        iplist[key] = str(dns.resolver.query(key, "A")[0])
+        print(iplist[key])
+        # = hostname
+    except dns.resolver.NXDOMAIN:
+        iplist[key] = key
+    except dns.resolver.Timeout:
+        iplist[key] = "DNS Timeout"
+    except SyntaxError:
+        print("Syntax Error")
+    except dns.exception.DNSException:
+        iplist[key] = 'Unknown Exception'
+
+for row in range(0, source_df.shape[0]):
+    # Collect the IP address from each row in the excel file
+    source_df.loc[row, 'IP_Address'] = iplist[source_df.loc[row]['Dns_Name1']]
+
+outfile = 'outfile.xlsx'
+target_sheet = 'sheet1'
+output = pd.ExcelWriter(outfile, engine='openpyxl')
+source_df.to_excel(output, sheet_name=target_sheet)
+output.save()
